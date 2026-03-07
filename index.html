@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KLEKKMAIS · MARKED</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-adapter-date-fns/3.0.0/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0a0a08;
+      --surface: #111110;
+      --border: rgba(255,255,255,0.06);
+      --text: #e8e4dc;
+      --muted: rgba(232,228,220,0.35);
+      --btc: #f7931a;
+      --mstr: #6ee7b7;
+      --tsla: #e05c5c;
+      --sol: #9945ff;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 2.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.2rem;
+    }
+    .site-name {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.6rem;
+      color: var(--text);
+      opacity: 0.5;
+      text-decoration: none;
+    }
+    .page-title { font-size: 0.65rem; letter-spacing: 0.4em; text-transform: uppercase; color: var(--muted); }
+    .last-updated { font-size: 0.6rem; letter-spacing: 0.2em; color: var(--muted); }
+
+    .tickers {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      margin-bottom: 2rem;
+    }
+    .ticker-card { background: var(--surface); padding: 1.2rem 1.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
+    .ticker-symbol { font-size: 0.6rem; letter-spacing: 0.35em; text-transform: uppercase; }
+    .ticker-price { font-family: 'DM Serif Display', serif; font-size: 1.8rem; line-height: 1; }
+    .ticker-change { font-size: 0.6rem; letter-spacing: 0.2em; }
+    .ticker-change.up { color: #6ee7b7; }
+    .ticker-change.down { color: #e05c5c; }
+    .ticker-from2022 { font-size: 0.55rem; letter-spacing: 0.15em; color: var(--muted); margin-top: 0.2rem; }
+
+    .controls { display: flex; gap: 1rem; margin-bottom: 2rem; }
+    .toggle-btn {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.6rem; letter-spacing: 0.3em; text-transform: uppercase;
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      padding: 0.5rem 1rem; cursor: pointer; transition: all 0.2s;
+    }
+    .toggle-btn.active { border-color: var(--text); color: var(--text); }
+
+    .chart-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 2rem;
+    }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .chart-label { font-size: 0.6rem; letter-spacing: 0.4em; text-transform: uppercase; color: var(--muted); }
+    .legend { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    .legend-item {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.55rem; letter-spacing: 0.25em; text-transform: uppercase;
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    .legend-item.hidden { opacity: 0.25; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 1px; }
+    .data-note { font-size: 0.55rem; letter-spacing: 0.15em; color: var(--muted); margin-top: 1rem; text-align: right; }
+
+    @media (max-width: 700px) {
+      .tickers { grid-template-columns: repeat(2, 1fr); }
+      body { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="site-name" href="/">Klekkmais</a>
+  <span class="page-title">Markedsutvikling</span>
+  <span class="last-updated" id="lastUpdated">Laster…</span>
+</header>
+
+<div class="tickers">
+  <div class="ticker-card">
+    <div class="ticker-symbol" style="color:var(--btc)">BTC</div>
+    <div class="ticker-price" id="price-BTC">—</div>
+    <div class="ticker-change" id="change-BTC">—</div>
+    <div class="ticker-from2022" id="from2022-BTC">siden 2022: —</div>
+  </div>
+  <div class="ticker-card">
+    <div class="ticker-symbol" style="color:var(--mstr)">MSTR</div>
+    <div class="ticker-price" id="price-MSTR">—</div>
+    <div class="ticker-change" id="change-MSTR">—</div>
+    <div class="ticker-from2022" id="from2022-MSTR">siden 2022: —</div>
+  </div>
+  <div class="ticker-card">
+    <div class="ticker-symbol" style="color:var(--tsla)">TSLA</div>
+    <div class="ticker-price" id="price-TSLA">—</div>
+    <div class="ticker-change" id="change-TSLA">—</div>
+    <div class="ticker-from2022" id="from2022-TSLA">siden 2022: —</div>
+  </div>
+  <div class="ticker-card">
+    <div class="ticker-symbol" style="color:var(--sol)">SOL</div>
+    <div class="ticker-price" id="price-SOL">—</div>
+    <div class="ticker-change" id="change-SOL">—</div>
+    <div class="ticker-from2022" id="from2022-SOL">siden 2022: —</div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="toggle-btn active" id="btnNorm" onclick="setMode('normalized')">Relativ utvikling (%)</button>
+  <button class="toggle-btn" id="btnAbs" onclick="setMode('absolute')">Absolutt pris</button>
+</div>
+
+<div class="chart-wrap">
+  <div class="chart-header">
+    <span class="chart-label">Jan 2022 → i dag</span>
+    <div class="legend" id="legend">
+      <div class="legend-item" id="leg-BTC" onclick="toggleAsset('BTC')"><div class="legend-dot" style="background:var(--btc)"></div>BTC</div>
+      <div class="legend-item" id="leg-MSTR" onclick="toggleAsset('MSTR')"><div class="legend-dot" style="background:var(--mstr)"></div>MSTR</div>
+      <div class="legend-item" id="leg-TSLA" onclick="toggleAsset('TSLA')"><div class="legend-dot" style="background:var(--tsla)"></div>TSLA</div>
+      <div class="legend-item" id="leg-SOL" onclick="toggleAsset('SOL')"><div class="legend-dot" style="background:var(--sol)"></div>SOL</div>
+    </div>
+  </div>
+  <canvas id="mainChart"></canvas>
+  <div class="data-note" id="dataNote"></div>
+</div>
+
+<script>
+const COLORS = { BTC:'#f7931a', MSTR:'#6ee7b7', TSLA:'#e05c5c', SOL:'#9945ff' };
+const SYMBOLS = ['BTC','MSTR','TSLA','SOL'];
+
+// ── Hardcoded weekly data 2022-2025 (approximate real prices) ────────────────
+// Each entry: [timestamp_ms, price]
+const SEED = {
+  BTC: [
+    [1641600000000,42000],[1642204800000,36000],[1642809600000,38000],[1643414400000,36500],
+    [1644019200000,38300],[1644624000000,40500],[1645228800000,43000],[1645833600000,39000],
+    [1646438400000,41000],[1647043200000,39500],[1647648000000,41500],[1648252800000,47000],
+    [1648857600000,46000],[1649462400000,43000],[1650067200000,40000],[1650672000000,38000],
+    [1651276800000,36000],[1651881600000,31000],[1652486400000,28000],[1653091200000,30000],
+    [1653696000000,29000],[1654300800000,31000],[1654905600000,29500],[1655510400000,21000],
+    [1656115200000,20000],[1656720000000,19500],[1657324800000,21500],[1657929600000,23000],
+    [1658534400000,22000],[1659139200000,23500],[1659744000000,24000],[1660348800000,23000],
+    [1660953600000,21500],[1661558400000,20000],[1662163200000,20500],[1662768000000,19500],
+    [1663372800000,20000],[1663977600000,19000],[1664582400000,20500],[1665187200000,19300],
+    [1665792000000,19500],[1666396800000,20500],[1667001600000,20000],[1667606400000,21000],
+    [1668211200000,17000],[1668816000000,16500],[1669420800000,16000],[1670025600000,17000],
+    [1670630400000,17500],[1671235200000,17000],[1671840000000,16700],[1672444800000,16600],
+    [1673049600000,17000],[1673654400000,21000],[1674259200000,22500],[1674864000000,23000],
+    [1675468800000,23500],[1676073600000,24000],[1676678400000,25000],[1677283200000,23500],
+    [1677888000000,22000],[1678492800000,22500],[1679097600000,28000],[1679702400000,27500],
+    [1680307200000,28000],[1680912000000,29500],[1681516800000,30000],[1682121600000,29000],
+    [1682726400000,27500],[1683331200000,28000],[1683936000000,29000],[1684540800000,27000],
+    [1685145600000,26500],[1685750400000,25500],[1686355200000,26000],[1686960000000,30000],
+    [1687564800000,31000],[1688169600000,30500],[1688774400000,30000],[1689379200000,29500],
+    [1689984000000,30500],[1690588800000,29000],[1691193600000,29500],[1691798400000,26000],
+    [1692403200000,26500],[1693008000000,27000],[1693612800000,26000],[1694217600000,25500],
+    [1694822400000,26500],[1695427200000,27000],[1696032000000,27500],[1696636800000,28000],
+    [1697241600000,34000],[1697846400000,35000],[1698451200000,34500],[1699056000000,36000],
+    [1699660800000,37000],[1700265600000,36500],[1700870400000,38000],[1701475200000,44000],
+    [1702080000000,43000],[1702684800000,41000],[1703289600000,43500],[1703894400000,44000],
+    [1704499200000,45000],[1705104000000,46000],[1705708800000,43000],[1706313600000,42500],
+    [1706918400000,47000],[1707523200000,52000],[1708128000000,51000],[1708732800000,57000],
+    [1709337600000,64000],[1709942400000,68000],[1710547200000,70000],[1711152000000,69000],
+    [1711756800000,72000],[1712361600000,70000],[1712966400000,63000],[1713571200000,64000],
+    [1714176000000,61000],[1714780800000,63000],[1715385600000,61000],[1715990400000,68000],
+    [1716595200000,67000],[1717200000000,71000],[1717804800000,70000],[1718409600000,65000],
+    [1719014400000,62000],[1719619200000,63000],[1720224000000,57000],[1720828800000,64000],
+    [1721433600000,66000],[1722038400000,65000],[1722643200000,60000],[1723248000000,59000],
+    [1723852800000,64000],[1724457600000,59000],[1725062400000,57000],[1725667200000,59000],
+    [1726272000000,60000],[1726876800000,63000],[1727481600000,65000],[1728086400000,63000],
+    [1728691200000,67000],[1729296000000,68000],[1729900800000,70000],[1730505600000,73000],
+    [1731110400000,76000],[1731715200000,91000],[1732320000000,98000],[1732924800000,96000],
+    [1733529600000,101000],[1734134400000,99000],[1734739200000,104000],[1735344000000,95000],
+    [1735948800000,97000],[1736553600000,102000],[1737158400000,104000],[1737763200000,98000],
+    [1738368000000,96000],[1738972800000,88000],[1739577600000,85000],[1740182400000,83000],
+    [1740787200000,86000],[1741392000000,84000],[1741996800000,87000],[1742601600000,85000],
+    [1743206400000,83000],[1743811200000,86000],[1744416000000,84000]
+  ],
+  MSTR: [
+    [1641600000000,480],[1643414400000,430],[1645228800000,460],[1647043200000,350],
+    [1648857600000,370],[1650672000000,340],[1652486400000,290],[1654300800000,280],
+    [1655510400000,180],[1657324800000,200],[1659139200000,260],[1660953600000,230],
+    [1662768000000,230],[1664582400000,220],[1666396800000,230],[1668211200000,160],
+    [1669420800000,145],[1670630400000,150],[1672444800000,145],[1673654400000,165],
+    [1675468800000,175],[1677283200000,200],[1679097600000,270],[1680912000000,320],
+    [1682726400000,330],[1684540800000,340],[1686355200000,380],[1688169600000,420],
+    [1689984000000,450],[1691798400000,380],[1693612800000,390],[1695427200000,410],
+    [1697241600000,430],[1699056000000,500],[1700870400000,570],[1701475200000,620],
+    [1703289600000,610],[1704499200000,580],[1706918400000,640],[1708732800000,720],
+    [1710547200000,1650],[1712361600000,1800],[1714176000000,1500],[1715990400000,1600],
+    [1717804800000,1700],[1719619200000,1400],[1721433600000,1300],[1723248000000,1250],
+    [1725062400000,1300],[1726876800000,1350],[1728691200000,1600],[1730505600000,2400],
+    [1731715200000,3500],[1732924800000,3300],[1734134400000,3400],[1735948800000,3200],
+    [1737158400000,3500],[1738968000000,2800],[1740182400000,2700],[1741392000000,2600],
+    [1742601600000,2750],[1743811200000,2800],[1744416000000,2850]
+  ],
+  TSLA: [
+    [1641600000000,1200],[1643414400000,1000],[1645228800000,950],[1647043200000,950],
+    [1648857600000,1100],[1650672000000,980],[1652486400000,900],[1654300800000,750],
+    [1655510400000,680],[1657324800000,730],[1659139200000,870],[1660953600000,910],
+    [1662768000000,870],[1664582400000,820],[1666396800000,210],[1668211200000,190],
+    [1669420800000,170],[1670630400000,165],[1672444800000,125],[1673654400000,145],
+    [1675468800000,190],[1677283200000,200],[1679097600000,200],[1680912000000,185],
+    [1682726400000,165],[1684540800000,190],[1686355200000,260],[1688169600000,280],
+    [1689984000000,265],[1691798400000,240],[1693612800000,250],[1695427200000,255],
+    [1697241600000,260],[1699056000000,220],[1700870400000,230],[1701475200000,245],
+    [1703289600000,250],[1704499200000,248],[1706918400000,185],[1708732800000,195],
+    [1710547200000,170],[1712361600000,165],[1714176000000,170],[1715990400000,175],
+    [1717804800000,180],[1719619200000,250],[1721433600000,230],[1723248000000,215],
+    [1725062400000,210],[1726876800000,250],[1728691200000,270],[1730505600000,300],
+    [1731715200000,340],[1732924800000,360],[1734134400000,420],[1735948800000,400],
+    [1737158400000,410],[1738968000000,350],[1740182400000,320],[1741392000000,280],
+    [1742601600000,275],[1743811200000,270],[1744416000000,265]
+  ],
+  SOL: [
+    [1641600000000,170],[1643414400000,140],[1645228800000,105],[1647043200000,92],
+    [1648857600000,120],[1650672000000,100],[1652486400000,68],[1654300800000,50],
+    [1655510400000,31],[1657324800000,35],[1659139200000,44],[1660953600000,40],
+    [1662768000000,33],[1664582400000,32],[1666396800000,31],[1668211200000,16],
+    [1669420800000,14],[1670630400000,13],[1672444800000,11],[1673654400000,17],
+    [1675468800000,24],[1677283200000,22],[1679097600000,22],[1680912000000,22],
+    [1682726400000,21],[1684540800000,22],[1686355200000,20],[1688169600000,24],
+    [1689984000000,24],[1691798400000,24],[1693612800000,20],[1695427200000,20],
+    [1697241600000,32],[1699056000000,44],[1700870400000,58],[1701475200000,72],
+    [1703289600000,74],[1704499200000,100],[1706918400000,115],[1708732800000,130],
+    [1710547200000,190],[1712361600000,180],[1714176000000,140],[1715990400000,160],
+    [1717804800000,160],[1719619200000,145],[1721433600000,165],[1723248000000,155],
+    [1725062400000,135],[1726876800000,155],[1728691200000,180],[1730505600000,200],
+    [1731715200000,220],[1732924800000,230],[1734134400000,235],[1735948800000,220],
+    [1737158400000,200],[1738968000000,180],[1740182400000,175],[1741392000000,130],
+    [1742601600000,125],[1743811200000,128],[1744416000000,130]
+  ]
+};
+
+let allData = JSON.parse(JSON.stringify(SEED)); // start with seed
+let chartMode = 'normalized';
+let chartInstance = null;
+let hiddenAssets = new Set();
+
+function fmt(n) {
+  if (n >= 1000) return '$' + n.toLocaleString('en-US', {maximumFractionDigits:0});
+  if (n >= 1)    return '$' + n.toFixed(2);
+  return '$' + n.toFixed(4);
+}
+function pct(a,b) {
+  const p = ((b-a)/a)*100;
+  return (p>=0?'+':'')+p.toFixed(1)+'%';
+}
+
+function updateTickers() {
+  SYMBOLS.forEach(sym => {
+    const pts = allData[sym];
+    if (!pts || pts.length < 2) return;
+    const first = pts[0][1], prev = pts[pts.length-2][1], last = pts[pts.length-1][1];
+    document.getElementById(`price-${sym}`).textContent = fmt(last);
+    const el = document.getElementById(`change-${sym}`);
+    el.textContent = pct(prev,last)+' (1w)';
+    el.className = 'ticker-change '+(last>=prev?'up':'down');
+    document.getElementById(`from2022-${sym}`).textContent = 'siden 2022: '+pct(first,last);
+  });
+}
+
+function buildChart() {
+  if (chartInstance) chartInstance.destroy();
+  const canvas = document.getElementById('mainChart');
+
+  const datasets = SYMBOLS.map(sym => {
+    const pts = allData[sym] || [];
+    let data;
+    if (chartMode === 'normalized') {
+      const base = pts[0][1];
+      data = pts.map(p => ({ x: p[0], y: ((p[1]-base)/base)*100 }));
+    } else {
+      data = pts.map(p => ({ x: p[0], y: p[1] }));
+    }
+    return {
+      label: sym,
+      data,
+      borderColor: COLORS[sym],
+      backgroundColor: COLORS[sym].replace(')', ',0.08)').replace('rgb','rgba'),
+      borderWidth: 2,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      tension: 0.3,
+      hidden: hiddenAssets.has(sym),
+      fill: false,
+    };
+  });
+
+  chartInstance = new Chart(canvas, {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true,
+      animation: { duration: 800 },
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'month', displayFormats: { month: 'MMM yy' } },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: 'rgba(232,228,220,0.3)', font: { family:'Share Tech Mono', size:10 }, maxTicksLimit:14 },
+          border: { color: 'rgba(255,255,255,0.06)' }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: {
+            color: 'rgba(232,228,220,0.3)',
+            font: { family:'Share Tech Mono', size:10 },
+            callback: v => chartMode==='normalized' ? (v>=0?'+':'')+v.toFixed(0)+'%' : fmt(v)
+          },
+          border: { color: 'rgba(255,255,255,0.06)' }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a18',
+          borderColor: 'rgba(255,255,255,0.1)',
+          borderWidth: 1,
+          titleColor: 'rgba(232,228,220,0.4)',
+          bodyColor: '#e8e4dc',
+          titleFont: { family:'Share Tech Mono', size:10 },
+          bodyFont: { family:'Share Tech Mono', size:11 },
+          padding: 12,
+          callbacks: {
+            label: ctx => {
+              const v = ctx.parsed.y;
+              const val = chartMode==='normalized' ? (v>=0?'+':'')+v.toFixed(1)+'%' : fmt(v);
+              return ` ${ctx.dataset.label}  ${val}`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function setMode(mode) {
+  chartMode = mode;
+  document.getElementById('btnNorm').classList.toggle('active', mode==='normalized');
+  document.getElementById('btnAbs').classList.toggle('active', mode==='absolute');
+  buildChart();
+}
+
+const SYMBOLS = ['BTC','MSTR','TSLA','SOL'];
+
+function toggleAsset(sym) {
+  hiddenAssets.has(sym) ? hiddenAssets.delete(sym) : hiddenAssets.add(sym);
+  document.getElementById('leg-'+sym).classList.toggle('hidden', hiddenAssets.has(sym));
+  buildChart();
+}
+
+// Try to fetch live data on top of seed
+async function tryFetchLive() {
+  const proxies = [
+    sym => `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1wk&range=3y`)}`,
+    sym => `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1wk&range=3y`)}`
+  ];
+
+  let anySuccess = false;
+  for (const sym of SYMBOLS) {
+    for (const proxy of proxies) {
+      try {
+        const res = await fetch(proxy(sym), { signal: AbortSignal.timeout(6000) });
+        if (!res.ok) continue;
+        const json = await res.json();
+        const result = json?.chart?.result?.[0];
+        if (!result) continue;
+        const ts = result.timestamp;
+        const closes = result.indicators.quote[0].close;
+        const start2022 = new Date('2022-01-01').getTime()/1000;
+        const pts = [];
+        for (let i=0;i<ts.length;i++) {
+          if (ts[i]>=start2022 && closes[i]!=null) pts.push([ts[i]*1000, closes[i]]);
+        }
+        if (pts.length > 10) { allData[sym]=pts; anySuccess=true; break; }
+      } catch(e) {}
+    }
+  }
+
+  if (anySuccess) {
+    updateTickers();
+    buildChart();
+    document.getElementById('dataNote').textContent = 'Live data · oppdatert '+new Date().toLocaleString('nb-NO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleString('nb-NO',{day:'2-digit',month:'short',year:'numeric'});
+  } else {
+    document.getElementById('dataNote').textContent = 'Viser historiske data · live data utilgjengelig';
+    document.getElementById('lastUpdated').textContent = 'Historiske data';
+  }
+}
+
+// Init immediately with seed data
+updateTickers();
+buildChart();
+document.getElementById('lastUpdated').textContent = 'Henter live data…';
+
+// Then try live
+tryFetchLive();
+setInterval(tryFetchLive, 24*60*60*1000);
+</script>
+</body>
+</html>
