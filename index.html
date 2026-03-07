@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>KLEKKMAIS · MARKED</title>
+  <title>KLEKKMAIS · Portefølje</title>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=DM+Serif+Display&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
@@ -11,304 +11,267 @@
     :root {
       --bg: #0a0a08; --surface: #111110; --border: rgba(255,255,255,0.06);
       --text: #e8e4dc; --muted: rgba(232,228,220,0.35);
-      --btc: #f7931a; --mstr: #6ee7b7; --tsla: #e05c5c; --sol: #9945ff;
+      --btc: #f7931a; --sol: #9945ff; --mstr: #6ee7b7;
+      --eth: #627eea; --tsla: #e05c5c;
+      --up: #6ee7b7; --down: #e05c5c;
     }
     body { background: var(--bg); color: var(--text); font-family: 'Share Tech Mono', monospace; min-height: 100vh; padding: 2rem; }
-    header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 2.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1.2rem; }
+    header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 2.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1.2rem; flex-wrap: wrap; gap: 1rem; }
     .site-name { font-family: 'DM Serif Display', serif; font-size: 1.6rem; color: var(--text); opacity: 0.5; text-decoration: none; }
     .page-title { font-size: 0.65rem; letter-spacing: 0.4em; text-transform: uppercase; color: var(--muted); }
-    .last-updated { font-size: 0.6rem; letter-spacing: 0.2em; color: var(--muted); }
-    .tickers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 2rem; }
-    .ticker-card { background: var(--surface); padding: 1.2rem 1.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
-    .ticker-symbol { font-size: 0.6rem; letter-spacing: 0.35em; text-transform: uppercase; }
-    .ticker-price { font-family: 'DM Serif Display', serif; font-size: 1.8rem; line-height: 1; }
-    .ticker-change { font-size: 0.6rem; letter-spacing: 0.2em; }
-    .ticker-change.up { color: #6ee7b7; } .ticker-change.down { color: #e05c5c; }
-    .ticker-from2022 { font-size: 0.55rem; letter-spacing: 0.15em; color: var(--muted); margin-top: 0.2rem; }
-    .controls { display: flex; gap: 1rem; margin-bottom: 2rem; }
-    .toggle-btn { font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; letter-spacing: 0.3em; text-transform: uppercase; background: none; border: 1px solid var(--border); color: var(--muted); padding: 0.5rem 1rem; cursor: pointer; transition: all 0.2s; }
-    .toggle-btn.active { border-color: var(--text); color: var(--text); }
-    .chart-wrap { background: var(--surface); border: 1px solid var(--border); padding: 2rem; }
-    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
-    .chart-label { font-size: 0.6rem; letter-spacing: 0.4em; text-transform: uppercase; color: var(--muted); }
-    .legend { display: flex; gap: 1.5rem; flex-wrap: wrap; }
-    .legend-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.55rem; letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer; transition: opacity 0.2s; }
-    .legend-item.hidden { opacity: 0.25; }
-    .legend-dot { width: 8px; height: 8px; border-radius: 1px; }
-    .data-note { font-size: 0.55rem; letter-spacing: 0.15em; color: var(--muted); margin-top: 1rem; text-align: right; }
-    @media (max-width: 700px) { .tickers { grid-template-columns: repeat(2,1fr); } body { padding: 1rem; } }
+    .live-badge { font-size: 0.55rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--up); display: flex; align-items: center; gap: 0.5rem; }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--up); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .total-box { background: var(--surface); border: 1px solid var(--border); padding: 2rem 2.5rem; margin-bottom: 1px; display: flex; align-items: baseline; gap: 3rem; flex-wrap: wrap; }
+    .total-label { font-size: 0.6rem; letter-spacing: 0.4em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.4rem; }
+    .total-value { font-family: 'DM Serif Display', serif; font-size: 3.2rem; line-height: 1; }
+    .total-sub { font-size: 0.6rem; color: var(--muted); margin-top: 0.4rem; }
+
+    .holdings { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 2rem; }
+    .holding { background: var(--surface); padding: 1.2rem 1.4rem; display: flex; flex-direction: column; gap: 0.45rem; }
+    .h-symbol { font-size: 0.55rem; letter-spacing: 0.35em; text-transform: uppercase; margin-bottom: 0.2rem; }
+    .h-value { font-family: 'DM Serif Display', serif; font-size: 1.4rem; line-height: 1; }
+    .h-sub { font-size: 0.55rem; letter-spacing: 0.05em; color: var(--muted); }
+    .h-price { font-size: 0.55rem; letter-spacing: 0.05em; color: var(--muted); }
+    .h-pct { font-size: 0.7rem; letter-spacing: 0.1em; margin-top: 0.2rem; }
+
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); margin-bottom: 2rem; }
+    .chart-box { background: var(--surface); border: 1px solid var(--border); padding: 1.8rem; }
+    .chart-box.full { grid-column: 1 / -1; }
+    .chart-title { font-size: 0.6rem; letter-spacing: 0.4em; text-transform: uppercase; color: var(--muted); margin-bottom: 1.2rem; }
+
+    .status { font-size: 0.55rem; letter-spacing: 0.2em; color: var(--muted); text-align: right; margin-top: 1rem; }
+
+    @media (max-width: 800px) { .holdings { grid-template-columns: repeat(3,1fr); } .charts-row { grid-template-columns: 1fr; } body { padding: 1rem; } }
+    @media (max-width: 500px) { .holdings { grid-template-columns: repeat(2,1fr); } }
   </style>
 </head>
 <body>
 
 <header>
   <a class="site-name" href="/">Klekkmais</a>
-  <span class="page-title">Markedsutvikling</span>
-  <span class="last-updated" id="lastUpdated">Historiske data</span>
+  <span class="page-title">Portefølje</span>
+  <div class="live-badge"><div class="live-dot"></div><span id="lastUpdated">Henter live priser…</span></div>
 </header>
 
-<div class="tickers">
-  <div class="ticker-card"><div class="ticker-symbol" style="color:var(--btc)">BTC</div><div class="ticker-price" id="price-BTC">—</div><div class="ticker-change" id="change-BTC">—</div><div class="ticker-from2022" id="from2022-BTC">siden 2022: —</div></div>
-  <div class="ticker-card"><div class="ticker-symbol" style="color:var(--mstr)">MSTR</div><div class="ticker-price" id="price-MSTR">—</div><div class="ticker-change" id="change-MSTR">—</div><div class="ticker-from2022" id="from2022-MSTR">siden 2022: —</div></div>
-  <div class="ticker-card"><div class="ticker-symbol" style="color:var(--tsla)">TSLA</div><div class="ticker-price" id="price-TSLA">—</div><div class="ticker-change" id="change-TSLA">—</div><div class="ticker-from2022" id="from2022-TSLA">siden 2022: —</div></div>
-  <div class="ticker-card"><div class="ticker-symbol" style="color:var(--sol)">SOL</div><div class="ticker-price" id="price-SOL">—</div><div class="ticker-change" id="change-SOL">—</div><div class="ticker-from2022" id="from2022-SOL">siden 2022: —</div></div>
-</div>
-
-<div class="controls">
-  <button class="toggle-btn active" id="btnNorm" onclick="setMode('normalized')">Relativ utvikling (%)</button>
-  <button class="toggle-btn" id="btnAbs" onclick="setMode('absolute')">Absolutt pris</button>
-</div>
-
-<div class="chart-wrap">
-  <div class="chart-header">
-    <span class="chart-label">Jan 2022 → i dag</span>
-    <div class="legend">
-      <div class="legend-item" id="leg-BTC" onclick="toggleAsset('BTC')"><div class="legend-dot" style="background:var(--btc)"></div>BTC</div>
-      <div class="legend-item" id="leg-MSTR" onclick="toggleAsset('MSTR')"><div class="legend-dot" style="background:var(--mstr)"></div>MSTR</div>
-      <div class="legend-item" id="leg-TSLA" onclick="toggleAsset('TSLA')"><div class="legend-dot" style="background:var(--tsla)"></div>TSLA</div>
-      <div class="legend-item" id="leg-SOL" onclick="toggleAsset('SOL')"><div class="legend-dot" style="background:var(--sol)"></div>SOL</div>
-    </div>
+<div class="total-box">
+  <div>
+    <div class="total-label">Total verdi (NOK)</div>
+    <div class="total-value" id="totalValue">—</div>
+    <div class="total-sub" id="totalSub">oppdaterer…</div>
   </div>
-  <canvas id="mainChart" height="120"></canvas>
-  <div class="data-note" id="dataNote"></div>
 </div>
+
+<div class="holdings" id="holdingsGrid">
+  <!-- filled by JS -->
+</div>
+
+<div class="charts-row">
+  <div class="chart-box">
+    <div class="chart-title">Fordeling (%)</div>
+    <canvas id="pieChart" height="220"></canvas>
+  </div>
+  <div class="chart-box">
+    <div class="chart-title">Verdi per asset (kr)</div>
+    <canvas id="barChart" height="220"></canvas>
+  </div>
+  <div class="chart-box full">
+    <div class="chart-title">BTC/NOK prishistorikk</div>
+    <canvas id="btcChart" height="80"></canvas>
+  </div>
+</div>
+<div class="status" id="statusMsg"></div>
 
 <script>
-const COLORS = { BTC:'#f7931a', MSTR:'#6ee7b7', TSLA:'#e05c5c', SOL:'#9945ff' };
-const SYMBOLS = ['BTC','MSTR','TSLA','SOL'];
-
-// Weekly data as [label, BTC, MSTR, TSLA, SOL]
-const RAW = [
-  ['Jan 22', 42000, 480, 1200, 170],
-  ['Feb 22', 38000, 430, 1000, 120],
-  ['Mar 22', 45000, 420, 950,  90],
-  ['Apr 22', 40000, 350, 970,  95],
-  ['Mai 22', 30000, 310, 900,  65],
-  ['Jun 22', 20000, 185, 700,  32],
-  ['Jul 22', 23000, 215, 760,  40],
-  ['Aug 22', 21500, 230, 910,  38],
-  ['Sep 22', 19500, 225, 870,  32],
-  ['Okt 22', 20500, 235, 210,  32],
-  ['Nov 22', 16500, 152, 190,  15],
-  ['Des 22', 16600, 148, 130,  12],
-  ['Jan 23', 21000, 165, 150,  17],
-  ['Feb 23', 24000, 180, 200,  22],
-  ['Mar 23', 28000, 270, 200,  22],
-  ['Apr 23', 29500, 320, 185,  22],
-  ['Mai 23', 27500, 340, 195,  22],
-  ['Jun 23', 30000, 380, 265,  20],
-  ['Jul 23', 30000, 420, 280,  24],
-  ['Aug 23', 26000, 385, 240,  24],
-  ['Sep 23', 26500, 390, 255,  20],
-  ['Okt 23', 34000, 430, 260,  32],
-  ['Nov 23', 37000, 500, 225,  55],
-  ['Des 23', 44000, 610, 250,  75],
-  ['Jan 24', 46000, 580, 248, 105],
-  ['Feb 24', 52000, 645, 190, 115],
-  ['Mar 24', 70000, 1650,175, 195],
-  ['Apr 24', 63000, 1550,165, 170],
-  ['Mai 24', 62000, 1580,175, 165],
-  ['Jun 24', 62000, 1600,185, 155],
-  ['Jul 24', 66000, 1400,230, 170],
-  ['Aug 24', 59000, 1280,215, 145],
-  ['Sep 24', 63000, 1350,250, 160],
-  ['Okt 24', 70000, 1700,280, 185],
-  ['Nov 24', 91000, 3500,345, 225],
-  ['Des 24', 99000, 3350,420, 235],
-  ['Jan 25', 102000,3500,410, 200],
-  ['Feb 25', 86000, 2750,320, 160],
-  ['Mar 25', 85000, 2800, 265, 128],
-  ['Apr 25', 83000, 2750, 250, 125],
-  ['Mai 25', 95000, 3100, 285, 160],
-  ['Jun 25', 102000, 3400, 310, 175],
-  ['Jul 25', 98000, 3200, 295, 165],
-  ['Aug 25', 105000, 3500, 320, 180],
-  ['Sep 25', 99000, 3300, 305, 170],
-  ['Okt 25', 108000, 3700, 340, 190],
-  ['Nov 25', 115000, 4000, 365, 210],
-  ['Des 25', 110000, 3850, 355, 205],
-  ['Jan 26', 106000, 3700, 340, 195],
-  ['Feb 26', 98000, 3400, 310, 170],
-  ['Mar 26', 85000, 2900, 270, 130],
+// ── Holdings: symbol, antall, farge, CoinGecko-id / Yahoo-ticker ──────────────
+const HOLDINGS = [
+  { sym:'BTC',  qty:0.417843, color:'#f7931a', geckoId:'bitcoin',          yahoo:'BTC-USD' },
+  { sym:'SOL',  qty:35.25,    color:'#9945ff', geckoId:'solana',           yahoo:'SOL-USD' },
+  { sym:'MSTR', qty:30,       color:'#6ee7b7', geckoId:null,               yahoo:'MSTR' },
+  { sym:'ETH',  qty:0.1067,   color:'#627eea', geckoId:'ethereum',         yahoo:'ETH-USD' },
+  { sym:'TSLA', qty:15,       color:'#e05c5c', geckoId:null,               yahoo:'TSLA' },
 ];
 
-const LABELS = RAW.map(r => r[0]);
-const DATA = {
-  BTC:  RAW.map(r => r[1]),
-  MSTR: RAW.map(r => r[2]),
-  TSLA: RAW.map(r => r[3]),
-  SOL:  RAW.map(r => r[4]),
-};
+const COLORS = HOLDINGS.map(h => h.color);
+let prices    = { BTC:67558, SOL:800, MSTR:1280, ETH:18883, TSLA:3802 }; // NOK prices (BTC stored in USD separately)
+let pricesUSD = { BTC:6250 }; // seed USD prices for BTC
+let usdNok = 10.8;
+let pieChart, barChart;
 
-let chartMode = 'normalized';
-let chartInstance = null;
-let hiddenAssets = new Set();
-
-function fmt(n) {
-  if (n >= 1000) return '$' + n.toLocaleString('en-US', {maximumFractionDigits:0});
-  return '$' + n.toFixed(2);
+function nokFmt(n) {
+  return n.toLocaleString('nb-NO', {maximumFractionDigits:0}) + ' kr';
 }
-function pct(a, b) {
-  const p = ((b - a) / a) * 100;
-  return (p >= 0 ? '+' : '') + p.toFixed(1) + '%';
+function priceFmt(n) {
+  if (n >= 10000) return n.toLocaleString('nb-NO', {maximumFractionDigits:0}) + ' kr';
+  if (n >= 100)   return n.toLocaleString('nb-NO', {maximumFractionDigits:0}) + ' kr';
+  return n.toLocaleString('nb-NO', {maximumFractionDigits:2}) + ' kr';
 }
 
-function updateTickers() {
-  SYMBOLS.forEach(sym => {
-    const pts = DATA[sym];
-    const first = pts[0], prev = pts[pts.length-2], last = pts[pts.length-1];
-    document.getElementById('price-'+sym).textContent = fmt(last);
-    const el = document.getElementById('change-'+sym);
-    el.textContent = pct(prev, last) + ' (1m)';
-    el.className = 'ticker-change ' + (last >= prev ? 'up' : 'down');
-    document.getElementById('from2022-'+sym).textContent = 'siden 2022: ' + pct(first, last);
-  });
+function render() {
+  const values = HOLDINGS.map(h => h.qty * (prices[h.sym] || 0));
+  const total = values.reduce((a,b) => a+b, 0);
+
+  document.getElementById('totalValue').textContent = nokFmt(total);
+  document.getElementById('totalSub').textContent = HOLDINGS.length + ' assets';
+
+  // Holdings cards
+  const grid = document.getElementById('holdingsGrid');
+  grid.innerHTML = HOLDINGS.map((h, i) => {
+    const val = values[i];
+    const pct = (val / total * 100).toFixed(1);
+    return `
+      <div class="holding">
+        <div class="h-symbol" style="color:${h.color}">${h.sym}</div>
+        <div class="h-value">${nokFmt(val)}</div>
+        <div class="h-sub">${h.qty} ${h.sym}</div>
+        <div class="h-price">${h.sym === 'BTC' ? '$' + (pricesUSD.BTC||0).toLocaleString('en-US',{maximumFractionDigits:0}) + ' USD' : priceFmt(prices[h.sym]||0)} / stk</div>
+        <div class="h-pct" style="color:${h.color}">${pct} %</div>
+      </div>`;
+  }).join('');
+
+  // Charts
+  buildPie(values, total);
+  buildBar(values);
 }
 
-function buildChart() {
-  if (chartInstance) chartInstance.destroy();
-
-  const datasets = SYMBOLS.map(sym => {
-    const pts = DATA[sym];
-    let values;
-    if (chartMode === 'normalized') {
-      const base = pts[0];
-      values = pts.map(v => ((v - base) / base) * 100);
-    } else {
-      values = [...pts];
-    }
-    return {
-      label: sym,
-      data: values,
-      borderColor: COLORS[sym],
-      backgroundColor: 'transparent',
-      borderWidth: 2,
-      pointRadius: 0,
-      pointHoverRadius: 5,
-      pointHoverBackgroundColor: COLORS[sym],
-      tension: 0.35,
-      hidden: hiddenAssets.has(sym),
-    };
-  });
-
-  chartInstance = new Chart(document.getElementById('mainChart'), {
-    type: 'line',
-    data: { labels: LABELS, datasets },
+function buildPie(values, total) {
+  if (pieChart) pieChart.destroy();
+  pieChart = new Chart(document.getElementById('pieChart'), {
+    type: 'doughnut',
+    data: {
+      labels: HOLDINGS.map(h => h.sym),
+      datasets: [{ data: values, backgroundColor: COLORS, borderColor: '#111110', borderWidth: 3, hoverOffset: 6 }]
+    },
     options: {
-      responsive: true,
-      animation: { duration: 700 },
-      interaction: { mode: 'index', intersect: false },
-      scales: {
-        x: {
-          grid: { color: 'rgba(255,255,255,0.04)' },
-          ticks: { color: 'rgba(232,228,220,0.3)', font: { family:'Share Tech Mono', size:10 }, maxTicksLimit: 14 },
-          border: { color: 'rgba(255,255,255,0.06)' }
-        },
-        y: {
-          grid: { color: 'rgba(255,255,255,0.04)' },
-          ticks: {
-            color: 'rgba(232,228,220,0.3)',
-            font: { family:'Share Tech Mono', size:10 },
-            callback: v => chartMode === 'normalized' ? (v>=0?'+':'')+v.toFixed(0)+'%' : fmt(v)
-          },
-          border: { color: 'rgba(255,255,255,0.06)' }
-        }
-      },
+      cutout: '62%',
       plugins: {
-        legend: { display: false },
+        legend: { position:'right', labels:{ color:'rgba(232,228,220,0.5)', font:{family:'Share Tech Mono',size:10}, padding:14, boxWidth:10 } },
         tooltip: {
-          backgroundColor: '#1a1a18',
-          borderColor: 'rgba(255,255,255,0.1)',
-          borderWidth: 1,
-          titleColor: 'rgba(232,228,220,0.4)',
-          bodyColor: '#e8e4dc',
-          titleFont: { family:'Share Tech Mono', size:10 },
-          bodyFont: { family:'Share Tech Mono', size:11 },
-          padding: 12,
-          callbacks: {
-            label: ctx => {
-              const v = ctx.parsed.y;
-              const val = chartMode === 'normalized'
-                ? (v>=0?'+':'')+v.toFixed(1)+'%'
-                : fmt(v);
-              return ` ${ctx.dataset.label}  ${val}`;
-            }
-          }
+          backgroundColor:'#1a1a18', borderColor:'rgba(255,255,255,0.1)', borderWidth:1,
+          titleColor:'rgba(232,228,220,0.4)', bodyColor:'#e8e4dc',
+          titleFont:{family:'Share Tech Mono',size:10}, bodyFont:{family:'Share Tech Mono',size:11}, padding:10,
+          callbacks: { label: ctx => ` ${ctx.label}  ${nokFmt(ctx.parsed)}  (${(ctx.parsed/total*100).toFixed(1)}%)` }
         }
       }
     }
   });
 }
 
-function setMode(mode) {
-  chartMode = mode;
-  document.getElementById('btnNorm').classList.toggle('active', mode==='normalized');
-  document.getElementById('btnAbs').classList.toggle('active', mode==='absolute');
-  buildChart();
+function buildBar(values) {
+  if (barChart) barChart.destroy();
+  barChart = new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    data: {
+      labels: HOLDINGS.map(h => h.sym),
+      datasets: [{ data: values, backgroundColor: COLORS, borderRadius: 2, borderSkipped: false }]
+    },
+    options: {
+      plugins: {
+        legend: { display:false },
+        tooltip: {
+          backgroundColor:'#1a1a18', borderColor:'rgba(255,255,255,0.1)', borderWidth:1,
+          titleColor:'rgba(232,228,220,0.4)', bodyColor:'#e8e4dc',
+          titleFont:{family:'Share Tech Mono',size:10}, bodyFont:{family:'Share Tech Mono',size:11}, padding:10,
+          callbacks: { label: ctx => ` ${nokFmt(ctx.parsed.y)}` }
+        }
+      },
+      scales: {
+        x: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'rgba(232,228,220,0.35)',font:{family:'Share Tech Mono',size:11}}, border:{color:'rgba(255,255,255,0.06)'} },
+        y: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'rgba(232,228,220,0.35)',font:{family:'Share Tech Mono',size:10}, callback: v => v>=1000?(v/1000).toFixed(0)+'k':v}, border:{color:'rgba(255,255,255,0.06)'} }
+      }
+    }
+  });
 }
 
-function toggleAsset(sym) {
-  hiddenAssets.has(sym) ? hiddenAssets.delete(sym) : hiddenAssets.add(sym);
-  document.getElementById('leg-'+sym).classList.toggle('hidden', hiddenAssets.has(sym));
-  buildChart();
-}
+// BTC history chart (static data fra regnearket)
+const BTC_DATES  = ['24.12','25.12','26.12','27.12','28.12','30.12','31.12','01.01','02.01','03.01','05.01','06.01','07.01','08.01','09.01','10.01','12.01','14.01','15.01','16.01','17.01','18.01','19.01','20.01','21.01','22.01','29.01','26.02','24.04','25.04','13.05','09.06','09.07','10.07','11.07','14.07','16.07','17.07','18.09','05.10','06.10'];
+const BTC_PRICES = [640000,670958,656890,659171,647627,642471,622929,624866,652725,666928,675237,703716,665786,650000,636000,652000,645000,655000,681000,693000,730000,739000,756000,762000,727000,703000,680000,532000,592000,610000,672000,660000,685000,705000,724000,742000,751000,756000,728000,758000,779000];
 
-// Try to fetch live data
-async function tryFetchLive() {
-  const proxies = [
-    sym => `https://corsproxy.io/?${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/'+sym+'?interval=1mo&range=3y')}`,
-    sym => `https://api.allorigins.win/raw?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/'+sym+'?interval=1mo&range=3y')}`
-  ];
-  let ok = 0;
-  for (const sym of SYMBOLS) {
-    for (const mkUrl of proxies) {
+new Chart(document.getElementById('btcChart'), {
+  type: 'line',
+  data: {
+    labels: BTC_DATES,
+    datasets: [{ data: BTC_PRICES, borderColor:'#f7931a', backgroundColor:'rgba(247,147,26,0.06)', borderWidth:2, pointRadius:0, pointHoverRadius:4, pointHoverBackgroundColor:'#f7931a', tension:0.3, fill:true }]
+  },
+  options: {
+    interaction: { mode:'index', intersect:false },
+    plugins: {
+      legend: { display:false },
+      tooltip: { backgroundColor:'#1a1a18', borderColor:'rgba(255,255,255,0.1)', borderWidth:1, titleColor:'rgba(232,228,220,0.4)', bodyColor:'#e8e4dc', titleFont:{family:'Share Tech Mono',size:10}, bodyFont:{family:'Share Tech Mono',size:11}, padding:10, callbacks:{ label: ctx => ` ${ctx.parsed.y.toLocaleString('nb-NO')} kr` } }
+    },
+    scales: {
+      x: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'rgba(232,228,220,0.3)',font:{family:'Share Tech Mono',size:9},maxTicksLimit:16}, border:{color:'rgba(255,255,255,0.06)'} },
+      y: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'rgba(232,228,220,0.3)',font:{family:'Share Tech Mono',size:10}, callback: v => (v/1000).toFixed(0)+'k'}, border:{color:'rgba(255,255,255,0.06)'} }
+    }
+  }
+});
+
+// ── Live price fetch ──────────────────────────────────────────────────────────
+async function fetchLivePrices() {
+  let ok = false;
+
+  // 1. Try CoinGecko for crypto (free, no key needed)
+  try {
+    const ids = HOLDINGS.filter(h => h.geckoId).map(h => h.geckoId).join(',');
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=nok,usd,usd`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (res.ok) {
+      const data = await res.json();
+      HOLDINGS.forEach(h => {
+        if (h.geckoId && data[h.geckoId]?.nok) {
+          if (h.sym === 'BTC' && data[h.geckoId]?.usd) pricesUSD.BTC = data[h.geckoId].usd;
+          prices[h.sym] = data[h.geckoId].nok;
+        }
+      });
+      ok = true;
+    }
+  } catch(e) {}
+
+  // 2. Try Yahoo Finance via proxy for stocks (MSTR, TSLA)
+  const stocks = HOLDINGS.filter(h => !h.geckoId);
+  for (const h of stocks) {
+    for (const mkUrl of [
+      s => `https://corsproxy.io/?${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/'+s+'?interval=1d&range=1d')}`,
+      s => `https://api.allorigins.win/raw?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/'+s+'?interval=1d&range=1d')}`
+    ]) {
       try {
-        const res = await fetch(mkUrl(sym), { signal: AbortSignal.timeout(7000) });
+        const res = await fetch(mkUrl(h.yahoo), { signal: AbortSignal.timeout(6000) });
         if (!res.ok) continue;
         const json = await res.json();
-        const result = json?.chart?.result?.[0];
-        if (!result) continue;
-        const ts = result.timestamp;
-        const closes = result.indicators.quote[0].close;
-        const start = new Date('2022-01-01').getTime()/1000;
-        const labels=[], values=[];
-        for (let i=0;i<ts.length;i++) {
-          if (ts[i]>=start && closes[i]!=null) {
-            const d = new Date(ts[i]*1000);
-            labels.push(d.toLocaleDateString('nb-NO',{month:'short',year:'2-digit'}));
-            values.push(closes[i]);
-          }
-        }
-        if (values.length > 5) {
-          DATA[sym] = values;
-          if (sym === 'BTC') {
-            // Update shared labels on first success
-            LABELS.length = 0;
-            labels.forEach(l => LABELS.push(l));
-          }
-          ok++;
-          break;
-        }
+        const usdPrice = json?.chart?.result?.[0]?.meta?.regularMarketPrice;
+        if (usdPrice) { prices[h.sym] = usdPrice * usdNok; ok = true; break; }
       } catch(e) {}
     }
   }
-  if (ok > 0) {
-    updateTickers();
-    buildChart();
-    document.getElementById('lastUpdated').textContent = 'Live · '+new Date().toLocaleString('nb-NO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-    document.getElementById('dataNote').textContent = ok+'/4 assets oppdatert med live data';
+
+  // 3. Fetch USD/NOK
+  try {
+    const res = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/USDNOK=X?interval=1d&range=1d')}`, { signal: AbortSignal.timeout(5000) });
+    if (res.ok) {
+      const json = await res.json();
+      const rate = json?.chart?.result?.[0]?.meta?.regularMarketPrice;
+      if (rate) usdNok = rate;
+    }
+  } catch(e) {}
+
+  render();
+
+  const now = new Date().toLocaleString('nb-NO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  if (ok) {
+    document.getElementById('lastUpdated').textContent = 'Live · ' + now;
+    document.getElementById('statusMsg').textContent = '';
   } else {
-    document.getElementById('dataNote').textContent = 'Live data utilgjengelig · viser historiske data';
+    document.getElementById('lastUpdated').textContent = 'Seed-priser (live utilgjengelig)';
+    document.getElementById('statusMsg').textContent = 'Kunne ikke hente live priser · viser siste kjente verdier';
   }
 }
 
-// Draw immediately with seed data
-updateTickers();
-buildChart();
-
-// Then try live
-tryFetchLive();
-setInterval(tryFetchLive, 24*60*60*1000);
+// Draw immediately with seed, then fetch live
+render();
+document.getElementById('lastUpdated').textContent = 'Henter live priser…';
+fetchLivePrices();
+setInterval(fetchLivePrices, 60 * 1000); // refresh hvert minutt
 </script>
 </body>
 </html>
