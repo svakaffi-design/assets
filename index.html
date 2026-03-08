@@ -119,9 +119,9 @@ const HOLDINGS = [
 ];
 
 const COLORS = HOLDINGS.map(h => h.color);
-let prices    = { BTC:67558, SOL:800, MSTR:1280, ETH:18883, TSLA:3802 }; // NOK prices (BTC stored in USD separately)
-let pricesUSD = { BTC:6250 }; // seed USD prices for BTC
-let usdNok = 10.8;
+let prices    = { BTC:900000, SOL:870, MSTR:3200, ETH:20700, TSLA:2800 }; // NOK seed prices
+let pricesUSD = { BTC:84000 }; // USD seed for BTC display
+let usdNok = 10.7;
 let pieChart, barChart;
 
 function nokFmt(n) {
@@ -395,7 +395,8 @@ async function loadAiAnalysis() {
     return `${sym}: ${qty} enheter, verdi ca ${val.toLocaleString('nb-NO')} NOK`;
   }).join('\n');
 
-  const prompt = `Du er en finansanalytiker. Porteføljen består av:\n${portfolio}\n\nGjør følgende:\n1. Søk på nettet etter de viktigste nyhetene fra de siste 24 timene for BTC, SOL, MSTR, ETH og TSLA.\n2. Gi en kort, konkret vurdering av hva eieren bør vurdere å gjøre videre med porteføljen.\n\nSvar KUN med dette JSON-formatet, ingen tekst utenfor:\n{\n  "news": [\n    {"sym": "BTC", "text": "..."},\n    {"sym": "SOL", "text": "..."},\n    {"sym": "MSTR", "text": "..."},\n    {"sym": "ETH", "text": "..."},\n    {"sym": "TSLA", "text": "..."}\n  ],\n  "analysis": "..."\n}`;
+  const today = new Date().toLocaleDateString('nb-NO',{day:'2-digit',month:'long',year:'numeric'});
+  const prompt = `Du er en finansanalytiker. Dato: ${today}. Portefølje: ${portfolio}. Svar KUN med JSON (ingen tekst utenfor): {"news":[{"sym":"BTC","text":"1-2 setninger om BTC-markedet nå"},{"sym":"SOL","text":"1-2 setninger om SOL nå"},{"sym":"MSTR","text":"1-2 setninger om MSTR nå"},{"sym":"ETH","text":"1-2 setninger om ETH nå"},{"sym":"TSLA","text":"1-2 setninger om TSLA nå"}],"analysis":"2-3 setninger konkret råd for denne porteføljen"}`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -407,9 +408,8 @@ async function loadAiAnalysis() {
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1500,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 800,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -468,7 +468,7 @@ async function fetchLivePrices() {
   // 1. Try CoinGecko for crypto (free, no key needed)
   try {
     const ids = HOLDINGS.filter(h => h.geckoId).map(h => h.geckoId).join(',');
-    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=nok,usd,usd`;
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=nok,usd`;
     const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
     if (res.ok) {
       const data = await res.json();
