@@ -84,6 +84,28 @@
     <div class="status" id="histStatus">Henter historikk…</div>
   </div>
 </div>
+
+<!-- AI News + Analysis -->
+<div class="chart-box" style="margin-top:1px;border:1px solid var(--border);background:var(--surface);padding:2rem;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+    <div class="chart-title" style="margin-bottom:0">Nyheter & AI-analyse · siste 24t</div>
+    <button class="toggle-btn" id="refreshAiBtn" onclick="loadAiAnalysis()" style="border-color:rgba(255,255,255,0.2);color:var(--text);">↻ Oppdater</button>
+  </div>
+
+  <!-- API key input -->
+  <div id="apiKeySection" style="margin-bottom:1.5rem;padding:1.2rem;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.02);">
+    <div style="font-size:0.55rem;letter-spacing:0.35em;text-transform:uppercase;color:var(--muted);margin-bottom:0.8rem;">Anthropic API-nøkkel</div>
+    <div style="display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap;">
+      <input id="apiKeyInput" type="password" placeholder="sk-ant-..." style="flex:1;min-width:200px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:0.65rem;padding:0.6rem 0.8rem;outline:none;letter-spacing:0.1em;" />
+      <button class="toggle-btn" onclick="saveApiKey()" style="border-color:rgba(255,255,255,0.2);color:var(--text);white-space:nowrap;">Lagre</button>
+    </div>
+    <div style="font-size:0.5rem;color:var(--muted);margin-top:0.6rem;letter-spacing:0.15em;">Nøkkelen lagres kun i nettleseren din (localStorage). Hentes fra console.anthropic.com</div>
+  </div>
+
+  <div id="aiContent">
+    <div style="text-align:center;padding:2rem;font-size:0.6rem;letter-spacing:0.3em;color:var(--muted);text-transform:uppercase;">Legg inn API-nøkkel og trykk Oppdater</div>
+  </div>
+</div>
 <div class="status" id="statusMsg"></div>
 
 <script>
@@ -336,6 +358,110 @@ function scheduleDailyRefresh() {
 
 fetchHistory();
 scheduleDailyRefresh();
+
+// ── News + Portfolio Analysis ────────────────────────────────────────────────
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) return;
+  localStorage.setItem('anthropic_key', key);
+  document.getElementById('apiKeySection').style.display = 'none';
+  loadAiAnalysis();
+}
+
+function initApiKey() {
+  const saved = localStorage.getItem('anthropic_key');
+  if (saved) {
+    document.getElementById('apiKeyInput').value = saved;
+    document.getElementById('apiKeySection').style.display = 'none';
+  }
+}
+
+async function loadAiAnalysis() {
+  const apiKey = localStorage.getItem('anthropic_key');
+  if (!apiKey) {
+    document.getElementById('apiKeySection').style.display = 'block';
+    document.getElementById('aiContent').innerHTML = '<div style="text-align:center;padding:2rem;font-size:0.6rem;letter-spacing:0.3em;color:var(--muted);text-transform:uppercase;">Legg inn API-nøkkel over</div>';
+    return;
+  }
+
+  const btn = document.getElementById('refreshAiBtn');
+  const content = document.getElementById('aiContent');
+  btn.disabled = true;
+  btn.textContent = '…';
+  content.innerHTML = '<div style="text-align:center;padding:3rem;font-size:0.6rem;letter-spacing:0.3em;color:var(--muted);text-transform:uppercase;">Analyserer portefølje…</div>';
+
+  const portfolio = Object.entries(QTY).map(([sym, qty]) => {
+    const val = Math.round(qty * (prices[sym] || 0));
+    return `${sym}: ${qty} enheter, verdi ca ${val.toLocaleString('nb-NO')} NOK`;
+  }).join('\n');
+
+  const prompt = `Du er en finansanalytiker. Porteføljen består av:\n${portfolio}\n\nGjør følgende:\n1. Søk på nettet etter de viktigste nyhetene fra de siste 24 timene for BTC, SOL, MSTR, ETH og TSLA.\n2. Gi en kort, konkret vurdering av hva eieren bør vurdere å gjøre videre med porteføljen.\n\nSvar KUN med dette JSON-formatet, ingen tekst utenfor:\n{\n  "news": [\n    {"sym": "BTC", "text": "..."},\n    {"sym": "SOL", "text": "..."},\n    {"sym": "MSTR", "text": "..."},\n    {"sym": "ETH", "text": "..."},\n    {"sym": "TSLA", "text": "..."}\n  ],\n  "analysis": "..."\n}`;
+
+  try {
+    // Use a CORS proxy to reach Anthropic API
+    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://api.anthropic.com/v1/messages');
+
+    const res = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`API ${res.status}: ${errText.slice(0,200)}`);
+    }
+
+    const data = await res.json();
+    const textBlock = data.content?.find(b => b.type === 'text');
+    if (!textBlock) throw new Error('Ingen tekstrespons fra AI');
+
+    let raw = textBlock.text.trim().replace(/```json|```/g, '').trim();
+    // Extract JSON if surrounded by other text
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Ugyldig JSON-respons');
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    const colors = { BTC:'#f7931a', SOL:'#9945ff', MSTR:'#6ee7b7', ETH:'#627eea', TSLA:'#e05c5c' };
+    const newsHtml = parsed.news.map(n => `
+      <div style="display:flex;gap:1rem;padding:1rem 0;border-bottom:1px solid var(--border);">
+        <div style="font-size:0.55rem;letter-spacing:0.3em;text-transform:uppercase;color:${colors[n.sym]||'#fff'};min-width:3rem;padding-top:0.15rem;flex-shrink:0">${n.sym}</div>
+        <div style="font-size:0.7rem;line-height:1.7;color:rgba(232,228,220,0.8);">${n.text}</div>
+      </div>`).join('');
+
+    content.innerHTML = `
+      <div>${newsHtml}</div>
+      <div style="margin-top:1.5rem;padding:1.5rem;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
+        <div style="font-size:0.55rem;letter-spacing:0.4em;text-transform:uppercase;color:var(--muted);margin-bottom:0.8rem;">AI-vurdering</div>
+        <div style="font-size:0.75rem;line-height:1.8;color:var(--text);">${parsed.analysis}</div>
+        <div style="font-size:0.5rem;color:var(--muted);margin-top:1rem;letter-spacing:0.15em;">Ikke finansiell rådgivning · ${new Date().toLocaleString('nb-NO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+      </div>`;
+
+  } catch(e) {
+    content.innerHTML = `
+      <div style="padding:1.5rem;border:1px solid rgba(224,92,92,0.3);background:rgba(224,92,92,0.05);">
+        <div style="font-size:0.6rem;letter-spacing:0.2em;color:#e05c5c;margin-bottom:0.5rem;text-transform:uppercase;">Feil</div>
+        <div style="font-size:0.65rem;color:var(--muted);">${e.message}</div>
+        <div style="font-size:0.55rem;color:var(--muted);margin-top:0.8rem;">Tips: Sjekk at API-nøkkelen er riktig. Trykk på nøkkelikonet for å endre den. <span style="cursor:pointer;text-decoration:underline;" onclick="document.getElementById('apiKeySection').style.display='block'">Endre nøkkel</span></div>
+      </div>`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = '↻ Oppdater';
+}
+
+initApiKey();
+loadAiAnalysis();
+setInterval(loadAiAnalysis, 6 * 60 * 60 * 1000);
 
 // ── Live price fetch ──────────────────────────────────────────────────────────
 async function fetchLivePrices() {
