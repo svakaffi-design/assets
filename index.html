@@ -41,6 +41,8 @@
     .chart-box.full { grid-column: 1 / -1; }
     .chart-title { font-size: 0.6rem; letter-spacing: 0.4em; text-transform: uppercase; color: var(--muted); margin-bottom: 1.2rem; }
 
+    .legend-item { display:flex;align-items:center;font-size:0.55rem;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;transition:opacity 0.2s;color:var(--muted); }
+    .legend-item.hidden { opacity:0.25; }
     .status { font-size: 0.55rem; letter-spacing: 0.2em; color: var(--muted); text-align: right; margin-top: 1rem; }
 
     @media (max-width: 800px) { .holdings { grid-template-columns: repeat(3,1fr); } .charts-row { grid-template-columns: 1fr; } body { padding: 1rem; } }
@@ -77,8 +79,22 @@
     <canvas id="barChart" height="220"></canvas>
   </div>
   <div class="chart-box full">
-    <div class="chart-title">BTC/NOK prishistorikk</div>
-    <canvas id="btcChart" height="80"></canvas>
+    <div class="chart-title">Prishistorikk · 2 år</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;flex-wrap:wrap;gap:0.8rem;">
+      <div style="display:flex;gap:1rem;">
+        <button class="toggle-btn active" id="btnHistNorm" onclick="setHistMode('normalized')">Relativ (%)</button>
+        <button class="toggle-btn" id="btnHistAbs" onclick="setHistMode('absolute')">Absolutt</button>
+      </div>
+      <div style="display:flex;gap:1.2rem;flex-wrap:wrap;" id="histLegend">
+        <div class="legend-item" id="histLeg-BTC" onclick="toggleHist('BTC')"><div style="width:8px;height:8px;border-radius:1px;background:#f7931a;display:inline-block;margin-right:0.4rem"></div>BTC</div>
+        <div class="legend-item" id="histLeg-SOL" onclick="toggleHist('SOL')"><div style="width:8px;height:8px;border-radius:1px;background:#9945ff;display:inline-block;margin-right:0.4rem"></div>SOL</div>
+        <div class="legend-item" id="histLeg-MSTR" onclick="toggleHist('MSTR')"><div style="width:8px;height:8px;border-radius:1px;background:#6ee7b7;display:inline-block;margin-right:0.4rem"></div>MSTR</div>
+        <div class="legend-item" id="histLeg-ETH" onclick="toggleHist('ETH')"><div style="width:8px;height:8px;border-radius:1px;background:#627eea;display:inline-block;margin-right:0.4rem"></div>ETH</div>
+        <div class="legend-item" id="histLeg-TSLA" onclick="toggleHist('TSLA')"><div style="width:8px;height:8px;border-radius:1px;background:#e05c5c;display:inline-block;margin-right:0.4rem"></div>TSLA</div>
+      </div>
+    </div>
+    <canvas id="btcChart" height="90"></canvas>
+    <div class="status" id="histStatus">Henter historikk…</div>
   </div>
 </div>
 <div class="status" id="statusMsg"></div>
@@ -184,28 +200,156 @@ function buildBar(values) {
   });
 }
 
-// BTC history chart (static data fra regnearket)
-const BTC_DATES  = ['24.12','25.12','26.12','27.12','28.12','30.12','31.12','01.01','02.01','03.01','05.01','06.01','07.01','08.01','09.01','10.01','12.01','14.01','15.01','16.01','17.01','18.01','19.01','20.01','21.01','22.01','29.01','26.02','24.04','25.04','13.05','09.06','09.07','10.07','11.07','14.07','16.07','17.07','18.09','05.10','06.10'];
-const BTC_PRICES = [640000,670958,656890,659171,647627,642471,622929,624866,652725,666928,675237,703716,665786,650000,636000,652000,645000,655000,681000,693000,730000,739000,756000,762000,727000,703000,680000,532000,592000,610000,672000,660000,685000,705000,724000,742000,751000,756000,728000,758000,779000];
+// ── Multi-asset history chart (2 years, daily, live) ─────────────────────
+let histChart = null;
+let histHidden = new Set();
+let histMode = 'normalized';
 
-new Chart(document.getElementById('btcChart'), {
-  type: 'line',
-  data: {
-    labels: BTC_DATES,
-    datasets: [{ data: BTC_PRICES, borderColor:'#f7931a', backgroundColor:'rgba(247,147,26,0.06)', borderWidth:2, pointRadius:0, pointHoverRadius:4, pointHoverBackgroundColor:'#f7931a', tension:0.3, fill:true }]
-  },
-  options: {
-    interaction: { mode:'index', intersect:false },
-    plugins: {
-      legend: { display:false },
-      tooltip: { backgroundColor:'#1a1a18', borderColor:'rgba(255,255,255,0.1)', borderWidth:1, titleColor:'rgba(232,228,220,0.4)', bodyColor:'#e8e4dc', titleFont:{family:'Share Tech Mono',size:10}, bodyFont:{family:'Share Tech Mono',size:11}, padding:10, callbacks:{ label: ctx => ` ${ctx.parsed.y.toLocaleString('nb-NO')} kr` } }
-    },
-    scales: {
-      x: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'rgba(232,228,220,0.3)',font:{family:'Share Tech Mono',size:9},maxTicksLimit:16}, border:{color:'rgba(255,255,255,0.06)'} },
-      y: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'rgba(232,228,220,0.3)',font:{family:'Share Tech Mono',size:10}, callback: v => (v/1000).toFixed(0)+'k'}, border:{color:'rgba(255,255,255,0.06)'} }
+function buildHistChart(datasets, labels) {
+  if (histChart) histChart.destroy();
+  histChart = new Chart(document.getElementById('btcChart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      animation: { duration: 600 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a18', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1,
+          titleColor: 'rgba(232,228,220,0.4)', bodyColor: '#e8e4dc',
+          titleFont: { family: 'Share Tech Mono', size: 10 },
+          bodyFont: { family: 'Share Tech Mono', size: 11 }, padding: 10,
+          callbacks: {
+            label: ctx => {
+              const v = ctx.parsed.y;
+              const val = histMode === 'normalized'
+                ? (v >= 0 ? '+' : '') + v.toFixed(1) + '%'
+                : (ctx.dataset.label === 'BTC' ? '$' + v.toLocaleString('en-US',{maximumFractionDigits:0}) : v.toLocaleString('nb-NO',{maximumFractionDigits:0}) + ' kr');
+              return \` \${ctx.dataset.label}  \${val}\`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: 'rgba(232,228,220,0.3)', font: { family: 'Share Tech Mono', size: 9 }, maxTicksLimit: 14 },
+          border: { color: 'rgba(255,255,255,0.06)' }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: {
+            color: 'rgba(232,228,220,0.3)', font: { family: 'Share Tech Mono', size: 10 },
+            callback: v => histMode === 'normalized'
+              ? (v >= 0 ? '+' : '') + v.toFixed(0) + '%'
+              : v >= 1000 ? (v/1000).toFixed(0)+'k' : v.toFixed(0)
+          },
+          border: { color: 'rgba(255,255,255,0.06)' }
+        }
+      }
+    }
+  });
+}
+
+const HIST_COLORS = { BTC:'#f7931a', SOL:'#9945ff', MSTR:'#6ee7b7', ETH:'#627eea', TSLA:'#e05c5c' };
+let histRawData = {}; // sym -> [{t, v}]
+
+async function fetchHistory() {
+  const twoYearsAgo = new Date();
+  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+
+  const yahooMap = { BTC:'BTC-USD', SOL:'SOL-USD', MSTR:'MSTR', ETH:'ETH-USD', TSLA:'TSLA' };
+  const proxies = [
+    s => \`https://corsproxy.io/?\${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/'+s+'?interval=1wk&range=2y')}\`,
+    s => \`https://api.allorigins.win/raw?url=\${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/'+s+'?interval=1wk&range=2y')}\`
+  ];
+
+  let anyOk = false;
+  for (const [sym, ticker] of Object.entries(yahooMap)) {
+    for (const mkUrl of proxies) {
+      try {
+        const res = await fetch(mkUrl(ticker), { signal: AbortSignal.timeout(7000) });
+        if (!res.ok) continue;
+        const json = await res.json();
+        const result = json?.chart?.result?.[0];
+        if (!result) continue;
+        const ts = result.timestamp;
+        const closes = result.indicators.quote[0].close;
+        const pts = [];
+        for (let i = 0; i < ts.length; i++) {
+          if (closes[i] != null) {
+            const d = new Date(ts[i] * 1000);
+            const label = d.toLocaleDateString('nb-NO', { day: '2-digit', month: 'short', year: '2-digit' });
+            pts.push({ t: label, v: closes[i] });
+          }
+        }
+        if (pts.length > 10) { histRawData[sym] = pts; anyOk = true; break; }
+      } catch(e) {}
     }
   }
-});
+
+  if (anyOk) renderHistChart();
+  document.getElementById('histStatus').textContent = anyOk
+    ? 'Live · oppdatert ' + new Date().toLocaleString('nb-NO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})
+    : 'Historiske data utilgjengelig';
+}
+
+function renderHistChart() {
+  // Use BTC labels as base (longest series)
+  const base = histRawData['BTC'] || histRawData['SOL'] || [];
+  const labels = base.map(p => p.t);
+
+  const datasets = Object.entries(histRawData).map(([sym, pts]) => {
+    let values;
+    if (histMode === 'normalized') {
+      const first = pts[0]?.v || 1;
+      values = pts.map(p => ((p.v - first) / first) * 100);
+    } else {
+      values = pts.map(p => p.v);
+    }
+    return {
+      label: sym,
+      data: values,
+      borderColor: HIST_COLORS[sym],
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      pointHoverBackgroundColor: HIST_COLORS[sym],
+      tension: 0.3,
+      hidden: histHidden.has(sym),
+    };
+  });
+
+  buildHistChart(datasets, labels);
+}
+
+function setHistMode(mode) {
+  histMode = mode;
+  document.getElementById('btnHistNorm').classList.toggle('active', mode === 'normalized');
+  document.getElementById('btnHistAbs').classList.toggle('active', mode === 'absolute');
+  renderHistChart();
+}
+
+function toggleHist(sym) {
+  histHidden.has(sym) ? histHidden.delete(sym) : histHidden.add(sym);
+  document.getElementById('histLeg-' + sym).classList.toggle('hidden', histHidden.has(sym));
+  renderHistChart();
+}
+
+// Schedule daily refresh at 16:00
+function scheduleDailyRefresh() {
+  const now = new Date();
+  const next = new Date();
+  next.setHours(16, 0, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  setTimeout(() => { fetchHistory(); scheduleDailyRefresh(); }, next - now);
+}
+
+fetchHistory();
+scheduleDailyRefresh();
 
 // ── Live price fetch ──────────────────────────────────────────────────────────
 async function fetchLivePrices() {
