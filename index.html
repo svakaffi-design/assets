@@ -79,21 +79,8 @@
     <canvas id="barChart" height="220"></canvas>
   </div>
   <div class="chart-box full">
-    <div class="chart-title">Prishistorikk · 2 år</div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;flex-wrap:wrap;gap:0.8rem;">
-      <div style="display:flex;gap:1rem;">
-        <button class="toggle-btn active" id="btnHistNorm" onclick="setHistMode('normalized')">Relativ (%)</button>
-        <button class="toggle-btn" id="btnHistAbs" onclick="setHistMode('absolute')">Absolutt</button>
-      </div>
-      <div style="display:flex;gap:1.2rem;flex-wrap:wrap;" id="histLegend">
-        <div class="legend-item" id="histLeg-BTC" onclick="toggleHist('BTC')"><div style="width:8px;height:8px;border-radius:1px;background:#f7931a;display:inline-block;margin-right:0.4rem"></div>BTC</div>
-        <div class="legend-item" id="histLeg-SOL" onclick="toggleHist('SOL')"><div style="width:8px;height:8px;border-radius:1px;background:#9945ff;display:inline-block;margin-right:0.4rem"></div>SOL</div>
-        <div class="legend-item" id="histLeg-MSTR" onclick="toggleHist('MSTR')"><div style="width:8px;height:8px;border-radius:1px;background:#6ee7b7;display:inline-block;margin-right:0.4rem"></div>MSTR</div>
-        <div class="legend-item" id="histLeg-ETH" onclick="toggleHist('ETH')"><div style="width:8px;height:8px;border-radius:1px;background:#627eea;display:inline-block;margin-right:0.4rem"></div>ETH</div>
-        <div class="legend-item" id="histLeg-TSLA" onclick="toggleHist('TSLA')"><div style="width:8px;height:8px;border-radius:1px;background:#e05c5c;display:inline-block;margin-right:0.4rem"></div>TSLA</div>
-      </div>
-    </div>
-    <canvas id="btcChart" height="90"></canvas>
+    <div class="chart-title">Total porteføljeverdi (NOK) · 2 år</div>
+    <canvas id="btcChart" height="80"></canvas>
     <div class="status" id="histStatus">Henter historikk…</div>
   </div>
 </div>
@@ -200,19 +187,59 @@ function buildBar(values) {
   });
 }
 
-// ── Multi-asset history chart (2 years, daily, live) ─────────────────────
+// ── Total portfolio value over time ──────────────────────────────────────────
 let histChart = null;
-let histHidden = new Set();
-let histMode = 'normalized';
 
-function buildHistChart(datasets, labels) {
+// Holdings quantities
+const QTY = { BTC: 0.417843, SOL: 35.25, MSTR: 30, ETH: 0.1067, TSLA: 15 };
+
+// Seed monthly prices (BTC/ETH/SOL in USD, MSTR/TSLA in USD — converted via usdNok seed)
+const SEED_LABELS = ['Mar 23','Apr 23','Mai 23','Jun 23','Jul 23','Aug 23','Sep 23','Okt 23','Nov 23','Des 23','Jan 24','Feb 24','Mar 24','Apr 24','Mai 24','Jun 24','Jul 24','Aug 24','Sep 24','Okt 24','Nov 24','Des 24','Jan 25','Feb 25','Mar 25'];
+// All prices in USD for simplicity, convert to NOK with usdNok
+const SEED_USD = {
+  BTC:  [28000,30000,27500,30000,30000,26000,26500,34000,37000,44000,46000,51000,70000,63000,62000,62000,66000,59000,63000,70000,91000,99000,102000,86000,85000],
+  SOL:  [  20,   22,   21,   19,   24,   24,   19,   32,   55,   75,  105,  130,  190,  170,  160,  145,  165,  138,  155,  200,  220,  235,  200,  180,  128],
+  MSTR: [ 250,  300,  320,  350,  390,  360,  360,  400,  470,  570,  540,  600, 1530, 1430, 1460, 1480, 1300, 1180, 1250, 1570, 3240, 3100, 3240, 2550, 2600],
+  ETH:  [1750, 1900, 1900, 1900, 1950, 1650, 1580, 1680, 2000, 2200, 2420, 2780, 3500, 3100, 3100, 3500, 3100, 2600, 2650, 2550, 3350, 3400, 3300, 2700, 2000],
+  TSLA: [ 180,  185,  195,  265,  280,  240,  255,  260,  225,  245,  248,  190,  170,  165,  175,  180,  230,  215,  250,  300,  340,  420,  410,  320,  265],
+};
+
+function calcTotals(usdPrices, labels, nokRate) {
+  return labels.map((_, i) => {
+    return Object.entries(QTY).reduce((sum, [sym, qty]) => {
+      const p = usdPrices[sym]?.[i] || 0;
+      return sum + qty * p * nokRate;
+    }, 0);
+  });
+}
+
+let histLabels = [...SEED_LABELS];
+let histTotals = calcTotals(SEED_USD, SEED_LABELS, 10.8);
+let histRawUSD = JSON.parse(JSON.stringify(SEED_USD));
+
+function renderHistChart() {
   if (histChart) histChart.destroy();
+
   histChart = new Chart(document.getElementById('btcChart'), {
     type: 'line',
-    data: { labels, datasets },
+    data: {
+      labels: histLabels,
+      datasets: [{
+        label: 'Portefølje',
+        data: histTotals,
+        borderColor: '#e8e4dc',
+        backgroundColor: 'rgba(232,228,220,0.05)',
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: '#e8e4dc',
+        tension: 0.35,
+        fill: true,
+      }]
+    },
     options: {
       responsive: true,
-      animation: { duration: 600 },
+      animation: { duration: 700 },
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: false },
@@ -220,15 +247,9 @@ function buildHistChart(datasets, labels) {
           backgroundColor: '#1a1a18', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1,
           titleColor: 'rgba(232,228,220,0.4)', bodyColor: '#e8e4dc',
           titleFont: { family: 'Share Tech Mono', size: 10 },
-          bodyFont: { family: 'Share Tech Mono', size: 11 }, padding: 10,
+          bodyFont: { family: 'Share Tech Mono', size: 11 }, padding: 12,
           callbacks: {
-            label: ctx => {
-              const v = ctx.parsed.y;
-              const val = histMode === 'normalized'
-                ? (v >= 0 ? '+' : '') + v.toFixed(1) + '%'
-                : (ctx.dataset.label === 'BTC' ? '$' + v.toLocaleString('en-US',{maximumFractionDigits:0}) : v.toLocaleString('nb-NO',{maximumFractionDigits:0}) + ' kr');
-              return \` \${ctx.dataset.label}  \${val}\`;
-            }
+            label: ctx => ` Total  ${Math.round(ctx.parsed.y).toLocaleString('nb-NO')} kr`
           }
         }
       },
@@ -242,9 +263,7 @@ function buildHistChart(datasets, labels) {
           grid: { color: 'rgba(255,255,255,0.04)' },
           ticks: {
             color: 'rgba(232,228,220,0.3)', font: { family: 'Share Tech Mono', size: 10 },
-            callback: v => histMode === 'normalized'
-              ? (v >= 0 ? '+' : '') + v.toFixed(0) + '%'
-              : v >= 1000 ? (v/1000).toFixed(0)+'k' : v.toFixed(0)
+            callback: v => v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(0)+'k' : v
           },
           border: { color: 'rgba(255,255,255,0.06)' }
         }
@@ -253,20 +272,18 @@ function buildHistChart(datasets, labels) {
   });
 }
 
-const HIST_COLORS = { BTC:'#f7931a', SOL:'#9945ff', MSTR:'#6ee7b7', ETH:'#627eea', TSLA:'#e05c5c' };
-let histRawData = {}; // sym -> [{t, v}]
+renderHistChart();
 
 async function fetchHistory() {
-  const twoYearsAgo = new Date();
-  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-
-  const yahooMap = { BTC:'BTC-USD', SOL:'SOL-USD', MSTR:'MSTR', ETH:'ETH-USD', TSLA:'TSLA' };
   const proxies = [
-    s => \`https://corsproxy.io/?\${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/'+s+'?interval=1wk&range=2y')}\`,
-    s => \`https://api.allorigins.win/raw?url=\${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/'+s+'?interval=1wk&range=2y')}\`
+    s => `https://corsproxy.io/?${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/'+s+'?interval=1mo&range=2y')}`,
+    s => `https://api.allorigins.win/raw?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/'+s+'?interval=1mo&range=2y')}`
   ];
-
+  const yahooMap = { BTC:'BTC-USD', SOL:'SOL-USD', MSTR:'MSTR', ETH:'ETH-USD', TSLA:'TSLA' };
   let anyOk = false;
+  const newUSD = {};
+  let newLabels = [];
+
   for (const [sym, ticker] of Object.entries(yahooMap)) {
     for (const mkUrl of proxies) {
       try {
@@ -277,72 +294,41 @@ async function fetchHistory() {
         if (!result) continue;
         const ts = result.timestamp;
         const closes = result.indicators.quote[0].close;
-        const pts = [];
+        const pts = [], labs = [];
         for (let i = 0; i < ts.length; i++) {
           if (closes[i] != null) {
-            const d = new Date(ts[i] * 1000);
-            const label = d.toLocaleDateString('nb-NO', { day: '2-digit', month: 'short', year: '2-digit' });
-            pts.push({ t: label, v: closes[i] });
+            const d = new Date(ts[i]*1000);
+            labs.push(d.toLocaleDateString('nb-NO',{month:'short',year:'2-digit'}));
+            // MSTR and TSLA come in USD from Yahoo
+            pts.push(closes[i]);
           }
         }
-        if (pts.length > 10) { histRawData[sym] = pts; anyOk = true; break; }
+        if (pts.length > 5) { newUSD[sym] = pts; if (!newLabels.length) newLabels = labs; anyOk = true; break; }
       } catch(e) {}
     }
   }
 
-  if (anyOk) renderHistChart();
-  document.getElementById('histStatus').textContent = anyOk
-    ? 'Live · oppdatert ' + new Date().toLocaleString('nb-NO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})
-    : 'Historiske data utilgjengelig';
-}
-
-function renderHistChart() {
-  // Use BTC labels as base (longest series)
-  const base = histRawData['BTC'] || histRawData['SOL'] || [];
-  const labels = base.map(p => p.t);
-
-  const datasets = Object.entries(histRawData).map(([sym, pts]) => {
-    let values;
-    if (histMode === 'normalized') {
-      const first = pts[0]?.v || 1;
-      values = pts.map(p => ((p.v - first) / first) * 100);
-    } else {
-      values = pts.map(p => p.v);
+  if (anyOk) {
+    Object.assign(histRawUSD, newUSD);
+    if (newLabels.length) { histLabels.length = 0; newLabels.forEach(l => histLabels.push(l)); }
+    // Recalculate totals with live usdNok
+    const n = histLabels.length;
+    const aligned = {};
+    for (const sym of Object.keys(QTY)) {
+      const pts = histRawUSD[sym] || [];
+      // Pad/trim to same length
+      aligned[sym] = Array.from({length: n}, (_, i) => pts[i] ?? pts[pts.length-1] ?? 0);
     }
-    return {
-      label: sym,
-      data: values,
-      borderColor: HIST_COLORS[sym],
-      backgroundColor: 'transparent',
-      borderWidth: 2,
-      pointRadius: 0,
-      pointHoverRadius: 4,
-      pointHoverBackgroundColor: HIST_COLORS[sym],
-      tension: 0.3,
-      hidden: histHidden.has(sym),
-    };
-  });
-
-  buildHistChart(datasets, labels);
+    histTotals = calcTotals(aligned, histLabels, usdNok);
+    renderHistChart();
+    document.getElementById('histStatus').textContent = 'Live · ' + new Date().toLocaleString('nb-NO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  } else {
+    document.getElementById('histStatus').textContent = 'Viser estimerte historiske data';
+  }
 }
 
-function setHistMode(mode) {
-  histMode = mode;
-  document.getElementById('btnHistNorm').classList.toggle('active', mode === 'normalized');
-  document.getElementById('btnHistAbs').classList.toggle('active', mode === 'absolute');
-  renderHistChart();
-}
-
-function toggleHist(sym) {
-  histHidden.has(sym) ? histHidden.delete(sym) : histHidden.add(sym);
-  document.getElementById('histLeg-' + sym).classList.toggle('hidden', histHidden.has(sym));
-  renderHistChart();
-}
-
-// Schedule daily refresh at 16:00
 function scheduleDailyRefresh() {
-  const now = new Date();
-  const next = new Date();
+  const now = new Date(), next = new Date();
   next.setHours(16, 0, 0, 0);
   if (next <= now) next.setDate(next.getDate() + 1);
   setTimeout(() => { fetchHistory(); scheduleDailyRefresh(); }, next - now);
