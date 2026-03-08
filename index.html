@@ -398,10 +398,7 @@ async function loadAiAnalysis() {
   const prompt = `Du er en finansanalytiker. Porteføljen består av:\n${portfolio}\n\nGjør følgende:\n1. Søk på nettet etter de viktigste nyhetene fra de siste 24 timene for BTC, SOL, MSTR, ETH og TSLA.\n2. Gi en kort, konkret vurdering av hva eieren bør vurdere å gjøre videre med porteføljen.\n\nSvar KUN med dette JSON-formatet, ingen tekst utenfor:\n{\n  "news": [\n    {"sym": "BTC", "text": "..."},\n    {"sym": "SOL", "text": "..."},\n    {"sym": "MSTR", "text": "..."},\n    {"sym": "ETH", "text": "..."},\n    {"sym": "TSLA", "text": "..."}\n  ],\n  "analysis": "..."\n}`;
 
   try {
-    // Use a CORS proxy to reach Anthropic API
-    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://api.anthropic.com/v1/messages');
-
-    const res = await fetch(proxyUrl, {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
